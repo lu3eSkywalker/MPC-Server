@@ -25,10 +25,38 @@ let keypair = Keypair::generate(&mut rand07::thread_rng());
     })
 }
 
+#[derive(Deserialize)]
+struct AggregateKeysRequest {
+    keys: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct AggregateKeysResponse {
+    aggregated_key: String,
+}
+
+async fn aggregate_keys_handler(
+    Json(payload): Json<AggregateKeysRequest>,
+) -> Json<AggregateKeysResponse> {
+    let pubkeys: Vec<Pubkey> = payload
+        .keys
+        .iter()
+        .map(|k| Pubkey::from_str(k).expect("Invalid pubkey"))
+        .collect();
+
+        let aggkey = tss::key_agg(pubkeys, None).unwrap();
+        let aggpubkey = Pubkey::new(&*aggkey.agg_public_key.to_bytes(true));
+
+        Json(AggregateKeysResponse {
+            aggregated_key: aggpubkey.to_string(),
+        })
+}
+
 #[tokio::main]
 async fn main() {
     let app = Router::new()
-        .route("/generate", post(generate_handler));
+        .route("/generate", post(generate_handler))
+        .route("/aggregate_keys", post(aggregate_keys_handler));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     println!("Server running at http://{}", addr);
