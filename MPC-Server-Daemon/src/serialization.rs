@@ -81,13 +81,13 @@ impl From<DeserializationError> for Error {
 pub trait FieldError<T> {
     fn with_field(self, field_name: &'static str) -> Result<T, crate::Error>;
 }
-impl<T: Serialize> FieldError<T> for Result<T, Error> {
+impl<T: Serializes> FieldError<T> for Result<T, Error> {
     fn with_field(self, field_name: &'static str) -> Result<T, crate::Error> {
         self.map_err(|error| crate::Error::DeserializationFailed { error, field_name })
     }
 }
 
-pub trait Serialize: Sized {
+pub trait Serializes: Sized {
     fn serialize_bs58(&self) -> String {
         let mut vec = Vec::with_capacity(self.size_hint());
         self.serialize(&mut vec);
@@ -109,7 +109,7 @@ pub struct AggMessage1 {
     pub sender: Pubkey,
 }
 
-impl Serialize for AggMessage1 {
+impl Serializes for AggMessage1 {
     fn serialize(&self, append_to: &mut Vec<u8>) {
         append_to.reserve(self.size_hint());
         append_to.push(Tag::AggMessage1 as u8);
@@ -138,7 +138,7 @@ impl Serialize for AggMessage1 {
 #[derive(Debug, PartialEq)]
 pub struct PartialSignature(pub Signature);
 
-impl Serialize for PartialSignature {
+impl Serializes for PartialSignature {
     fn serialize(&self, append_to: &mut Vec<u8>) {
         append_to.reserve(self.size_hint());
         append_to.push(Tag::PartialSignature as u8);
@@ -166,7 +166,7 @@ pub struct SecretAggStepOne {
     pub public_nonces: PublicPartialNonces,
 }
 
-impl Serialize for SecretAggStepOne {
+impl Serializes for SecretAggStepOne {
     fn serialize(&self, append_to: &mut Vec<u8>) {
         append_to.reserve(self.size_hint());
         append_to.push(Tag::SecretAggStepOne as u8);

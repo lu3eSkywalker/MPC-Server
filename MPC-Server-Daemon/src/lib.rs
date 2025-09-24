@@ -9,7 +9,7 @@ use spl_memo::solana_program::pubkey::Pubkey;
 
 use crate::cli::Options;
 use crate::error::Error;
-use crate::serialization::Serialize;
+use crate::serialization::Serializes;
 
 mod cli;
 mod error;

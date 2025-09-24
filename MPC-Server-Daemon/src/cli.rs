@@ -5,7 +5,7 @@ use solana_sdk::hash::Hash;
 use solana_sdk::{pubkey::Pubkey, signature::Keypair};
 
 use crate::error::Error;
-use crate::serialization::{AggMessage1, PartialSignature, SecretAggStepOne, Serialize};
+use crate::serialization::{AggMessage1, PartialSignature, SecretAggStepOne, Serializes};
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Parser)]
@@ -99,17 +99,17 @@ pub enum Options {
         #[clap(long, required = true, min_values = 2)]
         keys: Vec<Pubkey>,
         /// A list of all the first messages received in step 1
-        #[clap(long, required = true, min_values = 1, forbid_empty_values = true, parse(try_from_str = Serialize::deserialize_bs58))]
+        #[clap(long, required = true, min_values = 1, forbid_empty_values = true, parse(try_from_str = Serializes::deserialize_bs58))]
         first_messages: Vec<AggMessage1>,
         /// The secret state received in step 2.
-        #[clap(long, forbid_empty_values = true, parse(try_from_str = Serialize::deserialize_bs58))]
+        #[clap(long, forbid_empty_values = true, parse(try_from_str = Serializes::deserialize_bs58))]
         secret_state: SecretAggStepOne,
     },
     /// Aggregate all the partial signatures together into a full signature, and send the transaction to Solana
     #[clap(display_order = 10)]
     AggregateSignaturesAndBroadcast {
         // A list of all partial signatures produced in step three.
-        #[clap(long, required = true, min_values = 2, forbid_empty_values = true, parse(try_from_str = Serialize::deserialize_bs58))]
+        #[clap(long, required = true, min_values = 2, forbid_empty_values = true, parse(try_from_str = Serializes::deserialize_bs58))]
         signatures: Vec<PartialSignature>,
         /// The amount of SOL you want to send.
         #[clap(long)]
