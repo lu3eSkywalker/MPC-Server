@@ -46,18 +46,20 @@ struct AggregateKeysResponse {
 async fn aggregate_keys_handler(
     Json(payload): Json<AggregateKeysRequest>,
 ) -> Json<AggregateKeysResponse> {
+    // Convert Vec<String> -> Vec<Pubkey>
     let pubkeys: Vec<Pubkey> = payload
         .keys
         .iter()
         .map(|k| Pubkey::from_str(k).expect("Invalid pubkey"))
         .collect();
 
-        let aggkey = tss::key_agg(pubkeys, None).unwrap();
-        let aggpubkey = Pubkey::new(&*aggkey.agg_public_key.to_bytes(true));
+    // Pass pubkeys to tss::key_agg
+    let aggkey = tss::key_agg(pubkeys, None).unwrap();
+    let aggpubkey = Pubkey::new(&*aggkey.agg_public_key.to_bytes(true));
 
-        Json(AggregateKeysResponse {
-            aggregated_key: aggpubkey.to_string(),
-        })
+    Json(AggregateKeysResponse {
+        aggregated_key: aggpubkey.to_string(),
+    })
 }
 
 #[derive(Serialize)]
@@ -127,13 +129,64 @@ async fn agg_send_step_two_handler(
     }))
 }
 
+#[derive(Serialize)]
+struct BroadcastResponse {
+    txn_id: String,
+}
+
+
+#[derive(Deserialize)]
+struct BroadcastRequest {
+    signatures: Vec<String>,
+    amount: f64,
+    to: String,
+    memo: Option<String>,
+    recent_block_hash: String,
+    net: String,
+    keys: Vec<String>,
+}
+
+async fn agg_sig_and_broadcast(
+    Json(payload): Json<BroadcastRequest>,
+) -> Result<Json<BroadcastResponse>, String> {
+    // Deserialize the inputs
+    let to = Pubkey::from_str(&payload.to).map_err(|e| e.to_string())?;
+    let recent_block_hash = Hash::from_str(&payload.recent_block_hash).map_err(|e| e.to_string())?;
+    let keys: Vec<Pubkey> = payload.keys
+        .iter()
+        .map(|k| Pubkey::from_str(k).map_err(|e| e.to_string()))
+        .collect::<Result<_, _>>()?;
+    let signatures: Vec<PartialSignature> = payload.signatures
+        .iter()
+        .map(|s| PartialSignature::deserialize_bs58(s).map_err(|e| e.to_string()))
+        .collect::<Result<_, _>>()?;
+
+    let rpc_client = RpcClient::new(payload.net.clone());
+
+    let txn = tss::sign_and_broadcast(
+        payload.amount,
+        to,
+        payload.memo,
+        recent_block_hash,
+        keys,
+        signatures
+    ).map_err(|e| format!("Broadcast failed: {}", e))?;
+
+    let sig = rpc_client.send_transaction(&txn).map_err(|e| format!("Failed Sending Transaction: {}", e))?;
+
+    Ok(Json(BroadcastResponse {
+        txn_id: sig.to_string()
+    }))
+}
+
 #[tokio::main]
 async fn main() {
     let app = Router::new()
         .route("/generate", post(generate_handler))
         .route("/aggregate_keys", post(aggregate_keys_handler))
         .route("/agg_send_step_one", post(agg_send_step_one_handler))
-        .route("/agg_send_step_two", post(agg_send_step_one_handler));
+        .route("/agg_send_step_two", post(agg_send_step_two_handler))
+        .route("/agg_sig_and_broadcast", post(agg_sig_and_broadcast));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     println!("Server running at http://{}", addr);
